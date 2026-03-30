@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Blender Hub Pro - Subculture Modeler</title>
+    
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        
+        :root {
+            --bg-main: #FFF5F0; --sidebar-bg: #FFEDDF; --accent: #FF7B33; 
+            --text-main: #2D3748; --text-dim: #718096; --card-bg: #FFFFFF;
+            --border-color: #FFE0CC; --card-shadow: rgba(0, 0, 0, 0.05);
+            --modal-bg: rgba(0,0,0,0.3); --success: #48BB78; --canvas-bg: #f8fafc;
+        }
+        [data-theme="dark"] {
+            --bg-main: #1A202C; --sidebar-bg: #2D3748; --accent: #ED8936; 
+            --text-main: #F7FAFC; --text-dim: #A0AEC0; --card-bg: #2D3748;
+            --border-color: #4A5568; --card-shadow: rgba(0, 0, 0, 0.15);
+            --modal-bg: rgba(0,0,0,0.7); --success: #48BB78; 
+            --canvas-bg: radial-gradient(#4A5568 1px, transparent 1px);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-main); color: var(--text-main); overflow-x: hidden; transition: 0.3s; }
+        ::selection { background: rgba(237, 137, 54, 0.4); color: var(--text-main); }
+        body.highlighter-mode ::selection { background: #ED8936; color: #FFFFFF; }
+
+        /* --- UI 기본 골격 --- */
+        #home-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; width: 100vw; background: var(--sidebar-bg); position: fixed; top: 0; left: 0; z-index: 1000; transition: 0.8s; }
+        #home-screen.hide { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+        .start-btn { padding: 18px 50px; font-size: 1.2rem; font-weight: 700; color: white; background: var(--accent); border: none; border-radius: 14px; cursor: pointer; transition: 0.3s; box-shadow: 0 5px 15px var(--card-shadow); }
+        .start-btn:hover { transform: translateY(-3px); filter: brightness(1.1); }
+
+        #app-screen { display: flex; min-height: 100vh; opacity: 0; visibility: hidden; transition: 0.8s; }
+        #app-screen.show { opacity: 1; visibility: visible; }
+
+        /* --- 🌟 사이드바 --- */
+        nav { width: 280px; background: var(--sidebar-bg); padding: 2rem 1rem; position: fixed; height: 100vh; box-shadow: 2px 0 10px var(--card-shadow); z-index: 100; display: flex; flex-direction: column; }
+        .nav-content-wrapper { flex: 1; overflow-y: auto; padding-right: 5px; }
+        .nav-content-wrapper::-webkit-scrollbar { width: 4px; }
+        .nav-content-wrapper::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+        .mode-switch { display: flex; flex-direction: column; gap: 5px; margin-bottom: 20px; background: rgba(0,0,0,0.05); padding: 5px; border-radius: 12px; }
+        .mode-btn { width: 100%; padding: 10px; border: none; background: transparent; color: var(--text-dim); border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s; text-align: left; padding-left: 15px; }
+        .mode-btn.active { background: var(--card-bg); color: var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+        .cat-children { padding-left: 24px; border-left: 1px dashed var(--border-color); margin-left: 14px; margin-bottom: 5px; transition: 0.3s; }
+        .nav-item { display: flex; align-items: center; margin-bottom: 5px; border-radius: 8px; transition: 0.2s; background: transparent; }
+        .nav-item.active { background: var(--card-bg); border-left: 4px solid var(--accent); }
+        .category-text { flex: 1; padding: 10px 5px; color: var(--text-dim); cursor: pointer; outline: none; font-size: 0.95rem; }
+        .nav-item.active .category-text { color: var(--text-main); font-weight: 800; }
+        .nav-item:hover:not(.active) { background: rgba(0,0,0,0.05); }
+
+        .fold-btn { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 0.7rem; cursor: pointer; transition: 0.2s; user-select: none; border-radius: 4px; margin-left: 5px; }
+        .fold-btn:hover { background: rgba(0,0,0,0.1); color: var(--accent); }
+        .fold-btn.empty { cursor: default; pointer-events: none; opacity: 0; }
+
+        .cat-btns { display: flex; opacity: 0; transition: 0.2s; }
+        .nav-item:hover .cat-btns { opacity: 1; }
+        .cat-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 5px; font-size: 1rem; }
+        .cat-btn:hover { color: var(--accent); }
+        .cat-btn.del:hover { color: #E53E3E; }
+
+        .data-management { margin-top: auto; border-top: 1px dashed var(--border-color); padding-top: 15px; }
+        .data-btn { width: 100%; padding: 10px; margin-bottom: 8px; background: rgba(0,0,0,0.05); border: none; color: var(--text-main); border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; justify-content: center; gap: 8px; transition: 0.2s; }
+        .data-btn:hover { background: rgba(0,0,0,0.1); color: var(--accent); }
+
+        /* --- 🌟 메인 영역 --- */
+        main { flex: 1; margin-left: 280px; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; padding: 15px 40px; background: var(--bg-main); border-bottom: 1px solid var(--border-color); z-index: 50; }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+        .search-box { padding: 10px 15px; border-radius: 12px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-main); width: 200px; outline: none; }
+        .icon-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: var(--card-bg); color: var(--text-dim); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; }
+        .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+        
+        .view-section { display: none; animation: fadeIn 0.4s ease; flex: 1; flex-direction: column; overflow: hidden; }
+        .view-section.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- 📝 1. 무한 캔버스 (노트) --- */
+        #content-container { flex: 1; position: relative; overflow: auto; background: var(--canvas-bg); background-size: 20px 20px; width: 100%; height: 100%; padding: 20px; }
+        .tip-card { position: absolute; background: var(--card-bg); border-radius: 16px; box-shadow: 0 5px 15px var(--card-shadow); border: 1px solid var(--border-color); resize: both; overflow: hidden; width: 400px; height: 350px; display: flex; flex-direction: column; transition: box-shadow 0.2s; }
+        .tip-card:active { z-index: 99; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--sidebar-bg); border-bottom: 1px solid var(--border-color); cursor: grab; }
+        .card-header:active { cursor: grabbing; } 
+        .card-title-wrap { display: flex; align-items: center; flex: 1; border-left: 4px solid var(--accent); padding-left: 10px; }
+        .card-title-wrap h2 { font-size: 1.2rem; font-weight: 700; color: var(--text-main); outline: none; flex: 1; margin: 0; cursor: text; }
+        .card-actions { display: flex; gap: 4px; }
+        .util-btn { background: var(--bg-main); border: 1px solid var(--border-color); padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); transition: 0.2s; }
+        .util-btn:hover { background: var(--accent); color: white; }
+
+        .content-area { flex: 1; padding: 15px; overflow-y: auto; position: relative; display: flex; flex-direction: column; }
+        .images-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: hidden; }
+        .free-image-box { position: absolute; border: 2px transparent solid; resize: both; overflow: hidden; cursor: move; z-index: 10; pointer-events: auto; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: border 0.2s; }
+        .free-image-box img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: block; border-radius: 6px; }
+        .free-image-box .img-del-btn { position: absolute; top: 5px; right: 5px; background: rgba(229, 62, 62, 0.9); color: white; border: none; border-radius: 6px; padding: 4px 8px; font-weight: bold; cursor: pointer; display: none; font-size: 0.75rem; }
+        .free-image-box:hover .img-del-btn { display: block; }
+        .free-image-box:hover { border-color: var(--accent); z-index: 15; }
+        .editable-content { flex: 1; outline: none; line-height: 1.6; color: var(--text-main); font-size: 1.05rem; min-height: 100%; position: relative; z-index: 2; padding-bottom: 50px; }
+        .editable-content span.highlighted { background-color: #ED8936; color: #FFF; padding: 0 4px; border-radius: 4px; }
+        .editor-toolbar { display: none; gap: 5px; padding: 8px; background: var(--sidebar-bg); border-bottom: 1px solid var(--border-color); }
+        .tip-card.show-toolbar .editor-toolbar { display: flex; flex-wrap: wrap; }
+        .tool-btn { background: transparent; border: none; color: var(--text-main); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: bold; }
+        .tool-btn:hover, .tool-btn.active { background: var(--accent); color: white; }
+
+        /* 풀스크린 확대 뷰 */
+        #expand-modal { display: none; position: fixed; top:0; left:0; width:100vw; height:100vh; background: var(--bg-main); z-index: 4000; flex-direction: column; overflow: hidden; }
+        #expand-modal.show { display: flex; }
+        .expand-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 40px; background: var(--sidebar-bg); border-bottom: 1px solid var(--border-color); z-index: 20; box-shadow: 0 2px 10px var(--card-shadow); }
+        .expand-toolbar { display: flex; gap: 10px; padding: 10px 40px; background: var(--card-bg); border-bottom: 1px solid var(--border-color); z-index: 15; box-shadow: 0 2px 5px var(--card-shadow); align-items: center; }
+        .expand-body-wrapper { flex: 1; overflow-y: auto; background: var(--bg-main); position: relative; }
+        .expand-paper { width: 100%; position: relative; min-height: 100%; display: flex; flex-direction: column; }
+        #expand-images-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: visible; }
+        .expand-body { flex: 1; padding: 40px 50px; font-size: 1.15rem; line-height: 1.8; outline: none; color: var(--text-main); position: relative; z-index: 2; }
+
+        /* --- 📅 2. 캘린더 --- */
+        #view-calendar { padding: 40px; overflow-y: auto; }
+        .cal-container { width: 100%; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; }
+        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: var(--card-bg); padding: 15px 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 15px var(--card-shadow); }
+        .cal-nav-btn { background: var(--sidebar-bg); border: none; width: 40px; height: 40px; border-radius: 10px; font-size: 1.2rem; color: var(--text-main); cursor: pointer; transition: 0.2s; font-weight: bold; }
+        .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: 700; color: var(--text-dim); margin-bottom: 10px; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+        .cal-cell { background: var(--card-bg); min-height: 120px; border-radius: 12px; padding: 10px; border: 1px solid var(--border-color); cursor: pointer; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 2px 8px var(--card-shadow); }
+        .cal-cell:hover { border-color: var(--accent); }
+        .cal-cell.today { border: 2px solid var(--accent); background: var(--sidebar-bg); }
+        .cal-record { background: rgba(237, 137, 54, 0.15); color: var(--accent); padding: 6px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; word-break: break-all; }
+        .cal-record.done { background: rgba(72, 187, 120, 0.15); color: var(--success); text-decoration: line-through; opacity: 0.5; }
+
+        /* --- 📈 3. 스킬 트리 & 포트폴리오 --- */
+        #view-growth { padding: 40px; overflow-y: auto; background: var(--bg-main); }
+        .growth-container { width: 100%; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px; }
+        .skill-section { background: var(--card-bg); padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 5px 15px var(--card-shadow); }
+        .skill-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .skill-header h2 { color: var(--text-main); font-size: 1.4rem; }
+        .skill-list { display: flex; flex-direction: column; gap: 15px; }
+        .skill-item { display: flex; align-items: center; gap: 15px; }
+        .skill-name { width: 150px; color: var(--text-dim); font-weight: 700; font-size: 1rem; }
+        .skill-bar-container { flex: 1; height: 16px; background: var(--sidebar-bg); border-radius: 8px; overflow: hidden; position: relative; border: 1px solid var(--border-color); cursor: pointer; }
+        .skill-bar-fill { height: 100%; background: linear-gradient(90deg, #FF7B33, #ED8936); width: 0%; transition: width 0.3s ease; }
+        .skill-percent { width: 40px; text-align: right; color: var(--accent); font-weight: 800; font-size: 0.9rem; }
+        .gallery-section { background: var(--card-bg); padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 5px 15px var(--card-shadow); }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .gallery-item { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: var(--sidebar-bg); }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; transition: 0.3s; }
+        .gallery-item img:hover { transform: scale(1.05); }
+        .gallery-del { position: absolute; top: 10px; right: 10px; background: rgba(229, 62, 62, 0.9); color: white; border: none; border-radius: 6px; padding: 4px 8px; font-weight: bold; cursor: pointer; opacity: 0; transition: 0.3s; }
+        .gallery-item:hover .gallery-del { opacity: 1; }
+        .gallery-add { display: flex; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1; border-radius: 12px; border: 2px dashed var(--accent); cursor: pointer; color: var(--accent); font-weight: 700; background: rgba(237, 137, 54, 0.05); transition: 0.2s; }
+        .gallery-add:hover { background: rgba(237, 137, 54, 0.1); }
+
+        /* --- 💫 기본 모달 --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--modal-bg); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 5000; opacity: 0; visibility: hidden; transition: 0.3s; }
+        .modal-overlay.show { opacity: 1; visibility: visible; }
+        .custom-modal { background: var(--card-bg); padding: 30px; border-radius: 20px; width: 360px; text-align: center; box-shadow: 0 15px 30px rgba(0,0,0,0.3); border: 1px solid var(--border-color); }
+        .modal-input { width: 100%; padding: 12px; margin: 20px 0; border-radius: 10px; background: var(--sidebar-bg); border: 1px solid var(--border-color); color: var(--text-main); outline: none; }
+        .modal-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .modal-btn { flex: 1; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 700; border: none; }
+        .btn-cancel { background: var(--sidebar-bg); color: var(--text-main); }
+        .btn-confirm { background: var(--accent); color: white; }
+        .btn-danger { background: #E53E3E; color: white; }
+
+        #lightbox { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 6000; display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: 0.3s; cursor: zoom-out; }
+        #lightbox.show { opacity: 1; visibility: visible; }
+        #lightbox img { max-width: 90%; max-height: 90%; border-radius: 12px; }
+
+        @media (max-width: 1100px) { 
+            nav { width: 100%; position: relative; height: auto; padding-bottom: 20px; } main { margin-left: 0; } #app-screen { flex-direction: column; }
+            #content-container { display: flex; flex-direction: column; gap: 20px; padding: 10px; background: var(--bg-main); }
+            .tip-card { position: relative !important; left: auto !important; top: auto !important; width: 100% !important; height: auto !important; min-height: 250px; resize: none; } 
+            .cal-grid { grid-template-columns: repeat(7, minmax(30px, 1fr)); } .cal-cell { min-height: 80px; }
+            .expand-body { padding: 20px; }
+        }
+    </style>
+</head>
+<body onload="initApp()">
+
+    <div id="expand-modal">
+        <div class="expand-header">
+            <div style="display:flex; align-items:center; gap:15px; flex:1;">
+                <div style="width:5px; height:25px; background:var(--accent);"></div>
+                <h1 id="expand-title" contenteditable="true" spellcheck="false" style="font-size:1.8rem; color:var(--text-main); outline:none; margin:0;" onblur="saveDataQuietly()"></h1>
+            </div>
+            <button class="util-btn" onclick="triggerExpandImageUpload()" style="margin-right:15px; font-size:1rem; padding:8px 15px;">📷 다중 이미지 추가</button>
+            <button class="util-btn" onclick="closeExpandModal()" style="font-size:1.1rem; padding:8px 25px; background:var(--accent); color:white; border:none; border-radius:8px;">✔ 닫기</button>
+        </div>
+        
+        <div class="expand-toolbar">
+            <button class="tool-btn" onclick="formatExpandText('fontSize', '6')" title="크게">A+</button>
+            <button class="tool-btn" onclick="formatExpandText('fontSize', '3')" title="작게">A-</button>
+            <div style="width:1px; background:var(--border-color); height:20px; margin:0 5px;"></div>
+            <button class="tool-btn" onclick="formatExpandText('bold')" title="굵게">B</button>
+            <button class="tool-btn" onclick="formatExpandText('underline')" title="밑줄"><u style="text-decoration:underline;">U</u></button>
+            <div style="width:1px; background:var(--border-color); height:20px; margin:0 5px;"></div>
+            <button class="tool-btn hl-btn" onclick="toggleHighlighterMode()" title="형광펜 모드 ON/OFF">🖍️</button>
+            <button class="tool-btn" onclick="clearHighlight()" title="형광펜 지우기">🧽</button>
+        </div>
+
+        <div class="expand-body-wrapper" ondrop="handleExpandDrop(event)" ondragover="event.preventDefault()">
+            <div class="expand-paper">
+                <div id="expand-images-layer" class="images-layer"></div>
+                <div id="expand-body" class="expand-body" contenteditable="true" spellcheck="false" onblur="saveDataQuietly()"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-modal-overlay" class="modal-overlay">
+        <div class="custom-modal">
+            <h3 id="modal-title" style="color:var(--text-main); margin-bottom:10px;">알림</h3>
+            <p id="modal-message" style="color:var(--text-dim); font-size:0.9rem;"></p>
+            <input type="text" id="modal-input" class="modal-input" style="display:none;" autocomplete="off" spellcheck="false">
+            <div id="modal-btns" class="modal-btns"></div>
+        </div>
+    </div>
+
+    <div id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" src="" alt=""></div>
+
+    <div id="home-screen">
+        <div class="home-content">
+            <h1 style="color:var(--accent);">Blender Hub</h1>
+            <p style="margin-bottom: 30px; color: var(--text-dim);">서브컬처 캐릭터 3D 모델링 전용 스페이스</p>
+            <button class="start-btn" onclick="enterApp('notes')">시작하기</button>
+        </div>
+    </div>
+
+    <div id="app-screen">
+        <nav>
+            <div class="mode-switch">
+                <button id="tab-notes" class="mode-btn active" onclick="switchMode('notes')">📝 화이트보드</button>
+                <button id="tab-calendar" class="mode-btn" onclick="switchMode('calendar')">📅 퀘스트(일정)</button>
+                <button id="tab-growth" class="mode-btn" onclick="switchMode('growth')">🎯 스킬 & 성장</button>
+            </div>
+            
+            <div class="nav-content-wrapper" id="nav-notes-menu">
+                <h2 style="font-size: 0.8rem; letter-spacing: 2px; color: var(--text-dim); margin-bottom: 1rem;">FOLDERS</h2>
+                <div id="category-list">
+                    <div class="nav-item active" id="item-all" style="margin-bottom:15px;">
+                        <span class="fold-btn empty"></span>
+                        <div class="category-text" onclick="filterItems('all', 'item-all')">📁 캔버스 전체</div>
+                    </div>
+                    <div id="dynamic-categories"></div>
+                </div>
+                <button onclick="handleAddCategory(null)" style="width:100%; padding:12px; margin-top:20px; background:transparent; border:1px dashed var(--text-dim); color:var(--text-main); border-radius:10px; font-weight:600; cursor:pointer;">+ 메인 폴더 추가</button>
+                <button onclick="loadSubcultureTemplate()" style="width:100%; padding:12px; margin-top:10px; background:rgba(237, 137, 54, 0.1); border:1px solid var(--accent); color:var(--accent); border-radius:10px; font-weight:600; cursor:pointer;">✨ 캐릭터 폴더 세팅</button>
+            </div>
+
+            <div class="data-management">
+                <button class="data-btn" onclick="exportData()">💾 로컬 데이터 백업</button>
+                <button class="data-btn" onclick="document.getElementById('import-file').click()">📂 데이터 복구하기</button>
+                <input type="file" id="import-file" style="display:none;" accept=".json" onchange="importData(event)">
+            </div>
+        </nav>
+
+        <main>
+            <header class="header-top">
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <button onclick="handleAddNote()" style="padding:10px 20px; background:var(--accent); border:none; color:white; border-radius:10px; font-weight:bold; cursor:pointer;">+ 새 노트 띄우기</button>
+                </div>
+                <div class="header-actions">
+                    <input type="text" id="search-input" class="search-box" spellcheck="false" placeholder="🔍 제목/내용 검색" oninput="searchNotes(this.value)">
+                    <button class="icon-btn" onclick="toggleTheme()" title="테마 변경">🌙</button>
+                    <button class="icon-btn" onclick="goHome()" title="홈으로">🏠</button>
+                </div>
+            </header>
+
+            <div id="view-notes" class="view-section active">
+                <div id="content-container"></div>
+            </div>
+
+            <div id="view-calendar" class="view-section">
+                <div class="cal-container">
+                    <div class="cal-header">
+                        <button class="cal-nav-btn" onclick="changeMonth(-1)">◀</button>
+                        <h2 id="cal-month-title" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);"></h2>
+                        <button class="cal-nav-btn" onclick="changeMonth(1)">▶</button>
+                    </div>
+                    <div class="cal-weekdays"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+                    <div id="cal-grid" class="cal-grid"></div>
+                </div>
+            </div>
+
+            <div id="view-growth" class="view-section">
+                <div class="growth-container">
+                    <div class="skill-section">
+                        <div class="skill-header">
+                            <h2>✨ 3D 모델링 스킬 숙련도</h2>
+                            <button class="util-btn" onclick="handleAddSkill()">+ 스킬 추가</button>
+                        </div>
+                        <div class="skill-list" id="skill-list"></div>
+                    </div>
+                    <div class="gallery-section">
+                        <div class="skill-header">
+                            <h2>🖼️ 완성작 / 성장 갤러리</h2>
+                            <p style="color:var(--text-dim); font-size:0.9rem; margin:0;">과거의 나와 비교하며 성장을 기록하세요.</p>
+                        </div>
+                        <div class="gallery-grid" id="gallery-grid"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+<script>
+    // --- 💡 IndexedDB 설정 ---
+    const dbName = "BlenderHubDB";
+    const storeName = "appData";
+    let db;
+
+    function initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(dbName, 1);
+            request.onupgradeneeded = (e) => {
+                db = e.target.result;
+                if (!db.objectStoreNames.contains(storeName)) {
+                    db.createObjectStore(storeName);
+                }
+            };
+            request.onsuccess = (e) => { db = e.target.result; resolve(db); };
+            request.onerror = (e) => reject(e);
+        });
+    }
+
+    // --- 코어 데이터 변수 ---
+    let categoriesData = [];
+    let notesData = [];
+    let scheduleData = {}; 
+    let skillsData = [
+        { id: "s1", name: "인체 비율/해부학", progress: 20 },
+        { id: "s2", name: "얼굴 토폴로지", progress: 10 },
+        { id: "s3", name: "카툰 렌더링(NPR)", progress: 0 },
+        { id: "s4", name: "헤어 커브/파티클", progress: 0 },
+        { id: "s5", name: "리깅 및 웨이트", progress: 0 }
+    ];
+    let galleryData = [];
+
+    let currentCategoryId = 'all'; 
+    let currentMode = 'notes'; 
+    let calDate = new Date(); 
+    let isHighlighterMode = false;
+    let activeExpandNoteId = null;
+
+    function uuid() { return 'id-' + Math.random().toString(36).substr(2, 9); }
+
+    function toggleTheme() {
+        const html = document.documentElement;
+        const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', newTheme);
+        localStorage.setItem('blender_theme', newTheme);
+    }
+    
+    function enterApp(mode) { document.getElementById('home-screen').classList.add('hide'); document.getElementById('app-screen').classList.add('show'); switchMode(mode); }
+    function goHome() { document.getElementById('home-screen').classList.remove('hide'); document.getElementById('app-screen').classList.remove('show'); }
+    
+    function switchMode(mode) {
+        currentMode = mode;
+        document.getElementById('tab-notes').classList.toggle('active', mode === 'notes');
+        document.getElementById('tab-calendar').classList.toggle('active', mode === 'calendar');
+        document.getElementById('tab-growth').classList.toggle('active', mode === 'growth');
+        
+        document.getElementById('view-notes').classList.toggle('active', mode === 'notes');
+        document.getElementById('view-calendar').classList.toggle('active', mode === 'calendar');
+        document.getElementById('view-growth').classList.toggle('active', mode === 'growth');
+        
+        document.getElementById('nav-notes-menu').style.display = (mode === 'notes') ? 'block' : 'none';
+        
+        if(mode === 'calendar') renderCalendar();
+        if(mode === 'growth') { renderSkills(); renderGallery(); }
+    }
+    
+    const modalOverlay = document.getElementById('custom-modal-overlay'); 
+    const modalInput = document.getElementById('modal-input'); 
+    const modalBtns = document.getElementById('modal-btns');
+
+    function openModal({ type, title, message, placeholder = "", defaultValue = "", isDone = false }) {
+        return new Promise(resolve => {
+            document.getElementById('modal-title').innerText = title; 
+            document.getElementById('modal-message').innerHTML = message; 
+            modalInput.value = defaultValue; modalBtns.innerHTML = ''; 
+
+            const cancelBtn = document.createElement('button'); cancelBtn.className = 'modal-btn btn-cancel'; cancelBtn.innerText = '취소';
+            cancelBtn.onclick = () => { modalOverlay.classList.remove('show'); resolve(null); };
+
+            const confirmBtn = document.createElement('button'); confirmBtn.className = type === 'danger' ? 'modal-btn btn-danger' : 'modal-btn btn-confirm'; confirmBtn.innerText = '확인';
+            confirmBtn.onclick = () => { modalOverlay.classList.remove('show'); resolve(type === 'prompt' || type === 'schedule' ? { action: 'save', text: modalInput.value.trim() } : true); };
+
+            if (type === 'schedule') {
+                modalInput.style.display = 'block'; modalInput.placeholder = placeholder;
+                const doneBtn = document.createElement('button'); doneBtn.className = isDone ? 'modal-btn btn-cancel' : 'modal-btn btn-success'; doneBtn.innerText = isDone ? '미완료 변경' : '✔ 완료'; doneBtn.onclick = () => { modalOverlay.classList.remove('show'); resolve({ action: 'toggleDone', text: modalInput.value.trim() }); };
+                const delBtn = document.createElement('button'); delBtn.className = 'modal-btn btn-danger'; delBtn.innerText = '삭제'; delBtn.onclick = () => { modalOverlay.classList.remove('show'); resolve({ action: 'delete' }); };
+                if(defaultValue) modalBtns.appendChild(doneBtn); modalBtns.appendChild(cancelBtn); modalBtns.appendChild(confirmBtn); if(defaultValue) modalBtns.appendChild(delBtn);
+                setTimeout(() => modalInput.focus(), 100);
+            } else if (type === 'prompt') {
+                modalInput.style.display = 'block'; modalInput.placeholder = placeholder; modalBtns.appendChild(cancelBtn); modalBtns.appendChild(confirmBtn); setTimeout(() => modalInput.focus(), 100);
+            } else if (type === 'alert') {
+                modalInput.style.display = 'none'; modalBtns.appendChild(confirmBtn);
+            } else {
+                modalInput.style.display = 'none'; modalBtns.appendChild(cancelBtn); modalBtns.appendChild(confirmBtn);
+            }
+            modalOverlay.classList.add('show'); modalInput.onkeydown = (e) => { if (e.key === 'Enter') confirmBtn.click(); };
+        });
+    }
+
+    async function loadSubcultureTemplate() {
+        const confirmed = await openModal({ type: 'confirm', title: '캐릭터 템플릿 추가', message: '서브컬처 캐릭터 모델링에 필요한 기본 폴더 구조를 추가하시겠습니까?' });
+        if (confirmed) {
+            const rootId = uuid();
+            categoriesData.push({ id: rootId, name: '🎀 내 캐릭터 프로젝트', parentId: null, isExpanded: true });
+            categoriesData.push({ id: uuid(), name: '얼굴 (눈/코/입)', parentId: rootId });
+            categoriesData.push({ id: uuid(), name: '바디 (토폴로지)', parentId: rootId });
+            categoriesData.push({ id: uuid(), name: '헤어 (커브 세팅)', parentId: rootId });
+            categoriesData.push({ id: uuid(), name: '의상 및 악세사리', parentId: rootId });
+            categoriesData.push({ id: uuid(), name: '셰이딩 (NPR 노드)', parentId: rootId });
+            saveAndRenderQuietly();
+        }
+    }
+
+    async function handleAddCategory(parentId) { 
+        const title = parentId ? '하위 폴더 추가' : '메인 폴더 추가';
+        const res = await openModal({ type: 'prompt', title: title, message: '이름을 입력하세요.' }); 
+        if (res && res.action==='save' && res.text) { 
+            categoriesData.push({ id: uuid(), name: res.text, parentId: parentId, isExpanded: true });
+            saveAndRenderQuietly();
+        } 
+    }
+    
+    async function handleDeleteCategory(id) { 
+        const confirmed = await openModal({ type: 'danger', title: '삭제', message: '폴더와 안의 노트가 모두 지워집니다.' }); 
+        if (confirmed) { 
+            const idsToDelete = [id];
+            categoriesData.forEach(c => { if(c.parentId === id) idsToDelete.push(c.id); });
+            categoriesData = categoriesData.filter(c => !idsToDelete.includes(c.id));
+            notesData = notesData.filter(n => !idsToDelete.includes(n.catId));
+            if(idsToDelete.includes(currentCategoryId)) currentCategoryId = 'all';
+            saveAndRenderQuietly(); 
+        } 
+    }
+
+    function toggleFolder(event, id) {
+        event.stopPropagation();
+        const cat = categoriesData.find(c => c.id === id);
+        if (cat) {
+            cat.isExpanded = cat.isExpanded === false ? true : false;
+            saveAndRenderQuietly();
+        }
+    }
+
+    function renderCategoriesUI() {
+        const container = document.getElementById('dynamic-categories');
+        container.innerHTML = '';
+        
+        categoriesData.filter(c => !c.parentId).forEach(root => {
+            const children = categoriesData.filter(c => c.parentId === root.id);
+            const hasChildren = children.length > 0;
+            
+            container.appendChild(createCategoryDOM(root, 0, hasChildren));
+            
+            if(hasChildren) {
+                const subContainer = document.createElement('div');
+                subContainer.className = 'cat-children';
+                if (root.isExpanded === false) subContainer.style.display = 'none';
+                
+                children.forEach(child => subContainer.appendChild(createCategoryDOM(child, 1, false)));
+                container.appendChild(subContainer);
+            }
+        });
+        
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        const activeDom = document.getElementById('item-' + currentCategoryId);
+        if(activeDom) activeDom.classList.add('active');
+    }
+
+    function createCategoryDOM(cat, level, hasChildren) {
+        const div = document.createElement('div'); 
+        div.className = 'nav-item'; div.id = "item-"+cat.id;
+        let prefix = level === 1 ? '↳ ' : '📁 ';
+        
+        let toggleHtml = '';
+        if (level === 0 && hasChildren) {
+            const arrow = cat.isExpanded === false ? '▶' : '▼';
+            toggleHtml = `<span class="fold-btn" onclick="toggleFolder(event, '${cat.id}')" title="접기/펴기">${arrow}</span>`;
+        } else if (level === 0) {
+            toggleHtml = `<span class="fold-btn empty"></span>`;
+        }
+
+        div.innerHTML = `
+            ${toggleHtml}
+            <div class="category-text" onclick="filterItems('${cat.id}')">${prefix}${cat.name}</div>
+            <div class="cat-btns">
+                ${level === 0 ? `<button class="cat-btn" onclick="handleAddCategory('${cat.id}')" title="하위 폴더 추가">+</button>` : ''}
+                <button class="cat-btn del" onclick="handleDeleteCategory('${cat.id}')">×</button>
+            </div>
+        `;
+        return div;
+    }
+
+    function filterItems(id) { 
+        currentCategoryId = id; 
+        document.getElementById('search-input').value = ''; 
+        renderCategoriesUI(); renderNotesUI();
+    }
+
+    async function handleAddNote() { 
+        if (currentCategoryId === 'all') { await openModal({ type: 'danger', title: '경고', message: '왼쪽 폴더에서 특정 카테고리를 먼저 선택하세요.' }); return; } 
+        const container = document.getElementById('content-container');
+        const x = container.scrollLeft + 100 + Math.random()*100;
+        const y = container.scrollTop + 100 + Math.random()*100;
+        
+        notesData.push({ id: uuid(), catId: currentCategoryId, title: "새로운 기록", content: "", x: x, y: y, w: 380, h: 350, images: [] });
+        saveAndRenderQuietly();
+    }
+
+    function renderNotesUI() {
+        const container = document.getElementById('content-container');
+        container.innerHTML = '';
+        
+        notesData.forEach(note => {
+            if(currentCategoryId !== 'all' && note.catId !== currentCategoryId) return;
+            const div = document.createElement('div'); div.className = `tip-card`; div.id = note.id;
+            if(window.innerWidth > 1100) {
+                div.style.left = `${note.x}px`; div.style.top = `${note.y}px`;
+                div.style.width = `${note.w}px`; div.style.height = `${note.h}px`;
+            }
+
+            div.innerHTML = `
+                <div class="card-header" onmousedown="startCardDrag(event, '${note.id}')">
+                    <div class="card-title-wrap">
+                        <h2 contenteditable="true" spellcheck="false" onblur="updateNoteData('${note.id}', 'title', this.innerText)">${note.title}</h2>
+                    </div>
+                    <div class="card-actions" onmousedown="event.stopPropagation()">
+                        <button class="util-btn" onclick="openExpandModal('${note.id}')" title="전체화면 작성">🔍 확대</button>
+                        <button class="util-btn" onclick="triggerImageUpload('${note.id}')">📷 사진추가</button>
+                        <button class="util-btn" onclick="toggleNoteToolbar('${note.id}')">🛠️</button>
+                        <button class="util-btn del-card-btn" onclick="handleDeleteNoteUI('${note.id}')">✖</button>
+                    </div>
+                </div>
+                
+                <div class="editor-toolbar" onmousedown="event.stopPropagation()">
+                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '5'); saveDataQuietly();">A+</button>
+                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '3'); saveDataQuietly();">A-</button>
+                    <button class="tool-btn hl-btn" onclick="toggleHighlighterMode()">🖍️</button>
+                    <button class="tool-btn" onclick="clearHighlight()">🧽</button>
+                </div>
+                
+                <div class="content-area" onmousedown="event.stopPropagation()" ondrop="handleNoteDrop(event, '${note.id}')" ondragover="event.preventDefault()">
+                    <div class="images-layer" id="images-${note.id}"></div>
+                    <div class="editable-content" contenteditable="true" spellcheck="false" onblur="updateNoteData('${note.id}', 'content', this.innerHTML)">${note.content}</div>
+                </div>
+            `;
+            
+            new ResizeObserver(() => {
+                if(window.innerWidth > 1100 && div.style.width) {
+                    updateNoteData(note.id, 'w', parseInt(div.style.width));
+                    updateNoteData(note.id, 'h', parseInt(div.style.height));
+                }
+            }).observe(div);
+
+            container.appendChild(div);
+            renderImagesToContainer(note.id, `images-${note.id}`);
+        });
+    }
+
+    function renderImagesToContainer(noteId, containerId) {
+        const note = notesData.find(n => n.id === noteId);
+        const container = document.getElementById(containerId);
+        if(!note || !container) return;
+        
+        container.innerHTML = '';
+        (note.images || []).forEach(img => {
+            const el = document.createElement('div');
+            el.className = 'free-image-box';
+            el.style.left = `${img.x}px`; el.style.top = `${img.y}px`;
+            el.style.width = `${img.w}px`; el.style.height = `${img.h}px`;
+            el.onmousedown = (e) => startImgDrag(e, noteId, img.id);
+            el.innerHTML = `
+                <img src="${img.src}" onclick="openLightbox('${img.src}')">
+                <button class="img-del-btn" onclick="removeImage('${noteId}', '${img.id}')">삭제</button>
+            `;
+            container.appendChild(el);
+        });
+    }
+
+    async function handleDeleteNoteUI(id) {
+        const confirmed = await openModal({ type: 'danger', title: '노트 삭제', message: '삭제하시겠습니까?' }); 
+        if (confirmed) { notesData = notesData.filter(n => n.id !== id); saveAndRenderQuietly(); }
+    }
+
+    function startCardDrag(e, noteId) {
+        if(window.innerWidth <= 1100 || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'h2') return;
+        const card = document.getElementById(noteId); card.style.zIndex = 2000;
+        let startX = e.clientX, startY = e.clientY; let initLeft = parseInt(card.style.left || 0), initTop = parseInt(card.style.top || 0);
+
+        function move(e) { card.style.left = `${initLeft + (e.clientX - startX)}px`; card.style.top = `${initTop + (e.clientY - startY)}px`; }
+        function stop() {
+            document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop);
+            card.style.zIndex = ''; updateNoteData(noteId, 'x', parseInt(card.style.left)); updateNoteData(noteId, 'y', parseInt(card.style.top));
+        }
+        document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop);
+    }
+
+    function compressImage(base64Str, maxWidth = 800, quality = 0.6) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.src = base64Str;
+            img.onload = () => {
+                let w = img.width; let h = img.height;
+                if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = () => resolve(base64Str);
+        });
+    }
+
+    function triggerImageUpload(noteId) {
+        const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+        input.onchange = (e) => {
+            const files = Array.from(e.target.files); if(files.length === 0) return;
+            let loadedCount = 0;
+            const offsetBase = (notesData.find(n => n.id === noteId)?.images.length || 0) * 30;
+
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = async (ev) => {
+                    const compressedSrc = await compressImage(ev.target.result);
+                    const note = notesData.find(n => n.id === noteId);
+                    if(note) {
+                        note.images = note.images || [];
+                        note.images.push({ id: uuid(), src: compressedSrc, x: 20 + offsetBase + (index * 30), y: 20 + offsetBase + (index * 30), w: 200, h: 200 });
+                    }
+                    loadedCount++;
+                    if(loadedCount === files.length) {
+                        saveDataQuietly();
+                        renderImagesToContainer(noteId, `images-${noteId}`);
+                        if(activeExpandNoteId === noteId) renderImagesToContainer(noteId, 'expand-images-layer');
+                    }
+                }; reader.readAsDataURL(file);
+            });
+        }; input.click();
+    }
+
+    function triggerExpandImageUpload() { if(activeExpandNoteId) triggerImageUpload(activeExpandNoteId); }
+
+    function handleNoteDrop(e, noteId) {
+        e.preventDefault(); const files = e.dataTransfer.files; if(!files || files.length === 0) return;
+        const note = notesData.find(n => n.id === noteId); if(!note) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const dropX = e.clientX - rect.left; const dropY = e.clientY - rect.top;
+        const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+        if(validFiles.length === 0) return;
+
+        let loadedCount = 0;
+        validFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const compressedSrc = await compressImage(ev.target.result);
+                note.images = note.images || [];
+                note.images.push({ id: uuid(), src: compressedSrc, x: Math.max(10, dropX + (index * 30)), y: Math.max(10, dropY + (index * 30)), w: 250, h: 250 });
+                loadedCount++;
+                if(loadedCount === validFiles.length) {
+                    saveDataQuietly(); renderImagesToContainer(noteId, `images-${noteId}`);
+                }
+            }; reader.readAsDataURL(file);
+        });
+    }
+
+    function handleExpandDrop(e) {
+        if(!activeExpandNoteId) return;
+        e.preventDefault(); const files = e.dataTransfer.files; if(!files || files.length === 0) return;
+        const note = notesData.find(n => n.id === activeExpandNoteId); if(!note) return;
+        
+        const layer = document.getElementById('expand-images-layer');
+        const rect = layer.getBoundingClientRect();
+        const dropX = e.clientX - rect.left; const dropY = e.clientY - rect.top;
+        const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+        if(validFiles.length === 0) return;
+
+        let loadedCount = 0;
+        validFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const compressedSrc = await compressImage(ev.target.result);
+                note.images = note.images || [];
+                note.images.push({ id: uuid(), src: compressedSrc, x: Math.max(10, dropX + (index * 30)), y: Math.max(10, dropY + (index * 30)), w: 300, h: 300 });
+                loadedCount++;
+                if(loadedCount === validFiles.length) {
+                    saveDataQuietly();
+                    renderImagesToContainer(activeExpandNoteId, 'expand-images-layer');
+                    renderImagesToContainer(activeExpandNoteId, `images-${activeExpandNoteId}`);
+                }
+            }; reader.readAsDataURL(file);
+        });
+    }
+    
+    function removeImage(noteId, imgId) {
+        const note = notesData.find(n => n.id === noteId);
+        if(note) { 
+            note.images = note.images.filter(i => i.id !== imgId); 
+            saveDataQuietly(); 
+            renderImagesToContainer(noteId, `images-${noteId}`);
+            if(activeExpandNoteId === noteId) renderImagesToContainer(noteId, 'expand-images-layer');
+        }
+    }
+
+    function startImgDrag(e, noteId, imgId) {
+        e.stopPropagation(); const imgBox = e.currentTarget; const rect = imgBox.getBoundingClientRect();
+        
+        if (e.clientX > rect.right - 15 && e.clientY > rect.bottom - 15) {
+            const observer = new ResizeObserver(() => {
+                const note = notesData.find(n => n.id === noteId); const img = note?.images.find(i => i.id === imgId);
+                if(img && imgBox.style.width) { img.w = parseInt(imgBox.style.width); img.h = parseInt(imgBox.style.height); saveDataQuietly(); }
+            });
+            observer.observe(imgBox); document.addEventListener('mouseup', () => observer.disconnect(), {once: true}); return;
+        }
+
+        let startX = e.clientX, startY = e.clientY;
+        let initLeft = parseInt(imgBox.style.left || 0), initTop = parseInt(imgBox.style.top || 0);
+        imgBox.style.zIndex = 100;
+
+        function move(ev) { imgBox.style.left = `${initLeft + (ev.clientX - startX)}px`; imgBox.style.top = `${initTop + (ev.clientY - startY)}px`; }
+        function stop() {
+            document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop);
+            imgBox.style.zIndex = 10;
+            const note = notesData.find(n => n.id === noteId); const img = note?.images.find(i => i.id === imgId);
+            if(img && imgBox.style.left) { img.x = parseInt(imgBox.style.left); img.y = parseInt(imgBox.style.top); saveDataQuietly(); }
+        }
+        document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop);
+    }
+
+    function toggleNoteToolbar(id) { const card = document.getElementById(id); if(card) card.classList.toggle('show-toolbar'); }
+
+    function openExpandModal(noteId) {
+        const note = notesData.find(n => n.id === noteId); if(!note) return;
+        activeExpandNoteId = noteId; 
+        document.getElementById('expand-title').innerText = note.title; 
+        document.getElementById('expand-body').innerHTML = note.content;
+        renderImagesToContainer(noteId, 'expand-images-layer');
+        document.getElementById('expand-modal').classList.add('show');
+    }
+    
+    function closeExpandModal() {
+        if(activeExpandNoteId) {
+            const note = notesData.find(n => n.id === activeExpandNoteId);
+            if(note) {
+                note.title = document.getElementById('expand-title').innerText;
+                note.content = document.getElementById('expand-body').innerHTML;
+                saveDataQuietly();
+            }
+        }
+        document.getElementById('expand-modal').classList.remove('show');
+        activeExpandNoteId = null; renderNotesUI();
+    }
+    
+    function formatExpandText(command, val=null) { document.getElementById('expand-body').focus(); document.execCommand(command, false, val); saveDataQuietly(); }
+
+    function toggleHighlighterMode() {
+        isHighlighterMode = !isHighlighterMode;
+        document.querySelectorAll('.hl-btn').forEach(btn => btn.classList.toggle('active', isHighlighterMode));
+        
+        if (isHighlighterMode) { 
+            document.body.classList.add('highlighter-mode'); 
+            document.execCommand('backColor', false, '#ED8936');
+            document.execCommand('foreColor', false, '#FFFFFF');
+        } else { 
+            document.body.classList.remove('highlighter-mode'); 
+            document.execCommand('backColor', false, 'rgba(0,0,0,0)'); 
+            document.execCommand('foreColor', false, getComputedStyle(document.body).getPropertyValue('--text-main').trim());
+            document.execCommand('removeFormat', false, null);
+        }
+        const activeEditor = activeExpandNoteId ? document.getElementById('expand-body') : document.activeElement;
+        if(activeEditor && typeof activeEditor.focus === 'function') activeEditor.focus();
+    }
+    
+    document.addEventListener('mouseup', () => { 
+        if (isHighlighterMode && window.getSelection().toString().trim().length > 0) { 
+            document.execCommand('backColor', false, '#ED8936');
+            document.execCommand('foreColor', false, '#FFFFFF');
+            window.getSelection().removeAllRanges(); 
+            saveDataQuietly(); 
+        } 
+    });
+    
+    function clearHighlight() { 
+        document.execCommand('backColor', false, 'rgba(0,0,0,0)'); 
+        document.execCommand('foreColor', false, getComputedStyle(document.body).getPropertyValue('--text-main').trim()); 
+        document.execCommand('removeFormat', false, null); 
+        saveDataQuietly(); 
+    }
+
+    function changeMonth(step) { 
+        calDate.setMonth(calDate.getMonth() + step); 
+        renderCalendar(); 
+    }
+
+    function renderCalendar() {
+        const year = calDate.getFullYear(); const month = calDate.getMonth(); document.getElementById('cal-month-title').innerText = `${year}년 ${month + 1}월`;
+        const firstDay = new Date(year, month, 1).getDay(); const lastDate = new Date(year, month + 1, 0).getDate(); const grid = document.getElementById('cal-grid'); grid.innerHTML = '';
+        const today = new Date(); const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+        for(let i=0; i<firstDay; i++) grid.innerHTML += `<div class="cal-cell empty"></div>`; 
+        for(let i=1; i<=lastDate; i++) {
+            const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            const schedule = scheduleData[dateStr]; let recordHtml = '';
+            if (schedule && schedule.text) { const doneClass = schedule.done ? 'done' : ''; recordHtml = `<div class="cal-record ${doneClass}">${schedule.text}</div>`; }
+            const isTodayClass = (isCurrentMonth && today.getDate() === i) ? 'today' : '';
+            const safeText = schedule && schedule.text ? schedule.text.replace(/'/g, "\\'") : ''; const isDone = schedule ? schedule.done : false;
+            grid.innerHTML += `<div class="cal-cell ${isTodayClass}" onclick="handleScheduleClick('${dateStr}', '${safeText}', ${isDone})"><span class="cal-date">${i}</span>${recordHtml}</div>`;
+        }
+    }
+
+    async function handleScheduleClick(dateStr, currentText, isDone) {
+        const result = await openModal({ type: 'schedule', title: `📅 ${dateStr}`, message: '일정을 입력하세요.', defaultValue: currentText, isDone: isDone });
+        if (result) {
+            if (result.action === 'delete' || (result.action === 'save' && result.text === '')) { delete scheduleData[dateStr]; } 
+            else if (result.action === 'save') { scheduleData[dateStr] = { text: result.text, done: isDone }; } 
+            else if (result.action === 'toggleDone') { scheduleData[dateStr] = { text: result.text, done: !isDone }; }
+            saveAndRenderQuietly(); 
+        }
+    }
+
+    function renderSkills() {
+        const list = document.getElementById('skill-list');
+        list.innerHTML = '';
+        skillsData.forEach(skill => {
+            const div = document.createElement('div');
+            div.className = 'skill-item';
+            div.innerHTML = `
+                <div class="skill-name" contenteditable="true" spellcheck="false" onblur="updateSkillName('${skill.id}', this.innerText)">${skill.name}</div>
+                <div class="skill-bar-container" onclick="updateSkillProgress(event, '${skill.id}')">
+                    <div class="skill-bar-fill" style="width: ${skill.progress}%"></div>
+                </div>
+                <div class="skill-percent">${skill.progress}%</div>
+                <button class="cat-btn del" onclick="deleteSkill('${skill.id}')" style="margin-left:10px;">×</button>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    function updateSkillProgress(e, id) {
+        const container = e.currentTarget;
+        const rect = container.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        let percent = Math.round((clickX / rect.width) * 100);
+        if(percent < 0) percent = 0; if(percent > 100) percent = 100;
+        
+        const skill = skillsData.find(s => s.id === id);
+        if(skill) { skill.progress = percent; saveDataQuietly(); renderSkills(); }
+    }
+
+    function updateSkillName(id, name) {
+        const skill = skillsData.find(s => s.id === id);
+        if(skill) { skill.name = name; saveDataQuietly(); }
+    }
+
+    async function handleAddSkill() {
+        const name = await openModal({ type: 'prompt', title: '스킬 추가', message: '연마할 스킬 이름을 적어주세요.', placeholder: '예: 캐릭터 리깅' });
+        if(name && name.action === 'save' && name.text) {
+            skillsData.push({ id: uuid(), name: name.text, progress: 0 });
+            saveDataQuietly(); renderSkills();
+        }
+    }
+
+    function deleteSkill(id) {
+        skillsData = skillsData.filter(s => s.id !== id);
+        saveDataQuietly(); renderSkills();
+    }
+
+    function renderGallery() {
+        const grid = document.getElementById('gallery-grid');
+        grid.innerHTML = '';
+        
+        galleryData.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'gallery-item';
+            div.innerHTML = `
+                <img src="${item.src}" onclick="openLightbox('${item.src}')">
+                <button class="gallery-del" onclick="deleteGalleryItem('${item.id}')">삭제</button>
+            `;
+            grid.appendChild(div);
+        });
+
+        const addBtn = document.createElement('div');
+        addBtn.className = 'gallery-add';
+        addBtn.innerHTML = `<span style="font-size:2rem; margin-bottom:5px;">+</span> 렌더 이미지 추가`;
+        addBtn.onclick = () => triggerGalleryUpload();
+        grid.appendChild(addBtn);
+    }
+
+    function triggerGalleryUpload() {
+        const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+        input.onchange = (e) => {
+            Array.from(e.target.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = async (ev) => {
+                    const compressedSrc = await compressImage(ev.target.result, 1200, 0.8);
+                    galleryData.push({ id: uuid(), src: compressedSrc });
+                    saveDataQuietly(); renderGallery();
+                }; reader.readAsDataURL(file);
+            });
+        }; input.click();
+    }
+
+    function deleteGalleryItem(id) {
+        galleryData = galleryData.filter(g => g.id !== id);
+        saveDataQuietly(); renderGallery();
+    }
+
+    function updateNoteData(id, key, value) { const note = notesData.find(n => n.id === id); if(note) { note[key] = value; saveDataQuietly(); } }
+    
+    async function saveDataQuietly() { 
+        if (activeExpandNoteId) {
+            const note = notesData.find(n => n.id === activeExpandNoteId);
+            if(note) { note.title = document.getElementById('expand-title').innerText; note.content = document.getElementById('expand-body').innerHTML; }
+        }
+        
+        const dataToSave = { categories: categoriesData, notes: notesData, schedule: scheduleData, skills: skillsData, gallery: galleryData };
+        if(!db) await initDB();
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        store.put(dataToSave, 'main_save');
+    }
+    
+    function saveAndRenderQuietly() { saveDataQuietly(); renderCategoriesUI(); renderNotesUI(); renderCalendar(); }
+    
+    async function initApp() {
+        document.execCommand('styleWithCSS', false, true);
+
+        const savedTheme = localStorage.getItem('blender_theme') || 'dark'; 
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        await initDB();
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const request = store.get('main_save');
+
+        request.onsuccess = (e) => {
+            let data = e.target.result;
+            
+            if (!data) {
+                const oldRaw = localStorage.getItem('blender_hub_pro_max_v7');
+                if (oldRaw) data = JSON.parse(oldRaw);
+            }
+
+            if (data) { 
+                categoriesData = data.categories || []; notesData = data.notes || []; scheduleData = data.schedule || {}; 
+                skillsData = data.skills || skillsData; galleryData = data.gallery || [];
+                
+                categoriesData.forEach(c => {
+                    if(c.isExpanded === undefined) c.isExpanded = true;
+                });
+
+            } else { 
+                categoriesData = [ {id: uuid(), name: '블렌더 기본 폴더', parentId: null, isExpanded: true} ]; 
+            }
+            
+            saveAndRenderQuietly(); 
+            filterItems('all'); 
+        };
+    }
+    
+    function searchNotes(query) { query = query.toLowerCase(); document.querySelectorAll('.tip-card').forEach(card => { const title = card.querySelector('h2').innerText.toLowerCase(); const content = card.querySelector('.editable-content').innerText.toLowerCase(); const isMatch = title.includes(query) || content.includes(query); card.style.display = isMatch ? 'flex' : 'none'; }); }
+    function openLightbox(src) { document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').classList.add('show'); }
+    function closeLightbox() { document.getElementById('lightbox').classList.remove('show'); setTimeout(() => { document.getElementById('lightbox-img').src = ''; }, 300); }
+    async function exportData() { const dataStr = JSON.stringify({categories: categoriesData, notes: notesData, schedule: scheduleData, skills: skillsData, gallery: galleryData}, null, 2); const blob = new Blob([dataStr], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Blender_Data_Subculture.json`; a.click(); URL.revokeObjectURL(url); }
+    async function importData(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async function(e) { try { const importedData = JSON.parse(e.target.result); if(importedData.categories) { if(!db) await initDB(); const tx = db.transaction(storeName, 'readwrite'); const store = tx.objectStore(storeName); store.put(importedData, 'main_save'); tx.oncomplete = () => location.reload(); } } catch (err) { alert("파일 형식 오류"); } }; reader.readAsText(file); event.target.value = ''; }
+
+</script>
+</body>
+</html>
