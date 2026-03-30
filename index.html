@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blender Hub Pro - Subculture Modeler</title>
+    <title>Blender Hub Pro - Auto Save</title>
     
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -180,7 +180,7 @@
         <div class="expand-header">
             <div style="display:flex; align-items:center; gap:15px; flex:1;">
                 <div style="width:5px; height:25px; background:var(--accent);"></div>
-                <h1 id="expand-title" contenteditable="true" spellcheck="false" style="font-size:1.8rem; color:var(--text-main); outline:none; margin:0;" onblur="saveDataQuietly()"></h1>
+                <h1 id="expand-title" contenteditable="true" spellcheck="false" style="font-size:1.8rem; color:var(--text-main); outline:none; margin:0;" oninput="handleExpandInput()"></h1>
             </div>
             <button class="util-btn" onclick="triggerExpandImageUpload()" style="margin-right:15px; font-size:1rem; padding:8px 15px;">📷 다중 이미지 추가</button>
             <button class="util-btn" onclick="closeExpandModal()" style="font-size:1.1rem; padding:8px 25px; background:var(--accent); color:white; border:none; border-radius:8px;">✔ 닫기</button>
@@ -200,7 +200,7 @@
         <div class="expand-body-wrapper" ondrop="handleExpandDrop(event)" ondragover="event.preventDefault()">
             <div class="expand-paper">
                 <div id="expand-images-layer" class="images-layer"></div>
-                <div id="expand-body" class="expand-body" contenteditable="true" spellcheck="false" onblur="saveDataQuietly()"></div>
+                <div id="expand-body" class="expand-body" contenteditable="true" spellcheck="false" oninput="handleExpandInput()"></div>
             </div>
         </div>
     </div>
@@ -302,7 +302,7 @@
     </div>
 
 <script>
-    // --- 💡 IndexedDB 설정 ---
+    // --- 💡 1. IndexedDB 설정 ---
     const dbName = "BlenderHubDB";
     const storeName = "appData";
     let db;
@@ -339,6 +339,9 @@
     let calDate = new Date(); 
     let isHighlighterMode = false;
     let activeExpandNoteId = null;
+
+    // 💡 V22: 실시간 타이핑을 버벅거림 없이 저장하기 위한 디바운스 타이머
+    let autoSaveTimer;
 
     function uuid() { return 'id-' + Math.random().toString(36).substr(2, 9); }
 
@@ -510,6 +513,22 @@
         saveAndRenderQuietly();
     }
 
+    // 💡 V22: 입력 시 즉각 메모리에 반영하고 0.5초 뒤 자동 저장
+    function debouncedSave() {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(() => {
+            saveDataQuietly();
+        }, 500); // 0.5초 동안 타자가 멈추면 디비에 저장
+    }
+
+    function handleNoteInput(id, key, value) {
+        const note = notesData.find(n => n.id === id);
+        if(note) { 
+            note[key] = value; 
+            debouncedSave(); 
+        }
+    }
+
     function renderNotesUI() {
         const container = document.getElementById('content-container');
         container.innerHTML = '';
@@ -522,10 +541,11 @@
                 div.style.width = `${note.w}px`; div.style.height = `${note.h}px`;
             }
 
+            // 💡 V22: oninput 에 handleNoteInput을 연결하여 실시간 저장 트리거
             div.innerHTML = `
                 <div class="card-header" onmousedown="startCardDrag(event, '${note.id}')">
                     <div class="card-title-wrap">
-                        <h2 contenteditable="true" spellcheck="false" onblur="updateNoteData('${note.id}', 'title', this.innerText)">${note.title}</h2>
+                        <h2 contenteditable="true" spellcheck="false" oninput="handleNoteInput('${note.id}', 'title', this.innerText)">${note.title}</h2>
                     </div>
                     <div class="card-actions" onmousedown="event.stopPropagation()">
                         <button class="util-btn" onclick="openExpandModal('${note.id}')" title="전체화면 작성">🔍 확대</button>
@@ -536,15 +556,15 @@
                 </div>
                 
                 <div class="editor-toolbar" onmousedown="event.stopPropagation()">
-                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '5'); saveDataQuietly();">A+</button>
-                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '3'); saveDataQuietly();">A-</button>
+                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '5'); debouncedSave();">A+</button>
+                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '3'); debouncedSave();">A-</button>
                     <button class="tool-btn hl-btn" onclick="toggleHighlighterMode()">🖍️</button>
                     <button class="tool-btn" onclick="clearHighlight()">🧽</button>
                 </div>
                 
                 <div class="content-area" onmousedown="event.stopPropagation()" ondrop="handleNoteDrop(event, '${note.id}')" ondragover="event.preventDefault()">
                     <div class="images-layer" id="images-${note.id}"></div>
-                    <div class="editable-content" contenteditable="true" spellcheck="false" onblur="updateNoteData('${note.id}', 'content', this.innerHTML)">${note.content}</div>
+                    <div class="editable-content" contenteditable="true" spellcheck="false" oninput="handleNoteInput('${note.id}', 'content', this.innerHTML)">${note.content}</div>
                 </div>
             `;
             
@@ -732,6 +752,11 @@
 
     function toggleNoteToolbar(id) { const card = document.getElementById(id); if(card) card.classList.toggle('show-toolbar'); }
 
+    // 💡 V22: 확대 모달의 입력 이벤트를 디바운스 자동 저장에 연결
+    function handleExpandInput() {
+        debouncedSave();
+    }
+
     function openExpandModal(noteId) {
         const note = notesData.find(n => n.id === noteId); if(!note) return;
         activeExpandNoteId = noteId; 
@@ -754,7 +779,7 @@
         activeExpandNoteId = null; renderNotesUI();
     }
     
-    function formatExpandText(command, val=null) { document.getElementById('expand-body').focus(); document.execCommand(command, false, val); saveDataQuietly(); }
+    function formatExpandText(command, val=null) { document.getElementById('expand-body').focus(); document.execCommand(command, false, val); debouncedSave(); }
 
     function toggleHighlighterMode() {
         isHighlighterMode = !isHighlighterMode;
@@ -779,7 +804,7 @@
             document.execCommand('backColor', false, '#ED8936');
             document.execCommand('foreColor', false, '#FFFFFF');
             window.getSelection().removeAllRanges(); 
-            saveDataQuietly(); 
+            debouncedSave(); 
         } 
     });
     
@@ -787,7 +812,7 @@
         document.execCommand('backColor', false, 'rgba(0,0,0,0)'); 
         document.execCommand('foreColor', false, getComputedStyle(document.body).getPropertyValue('--text-main').trim()); 
         document.execCommand('removeFormat', false, null); 
-        saveDataQuietly(); 
+        debouncedSave(); 
     }
 
     function changeMonth(step) { 
@@ -820,6 +845,12 @@
         }
     }
 
+    // 💡 V22: 스킬 트리 실시간 저장
+    function handleSkillInput(id, value) {
+        const skill = skillsData.find(s => s.id === id);
+        if(skill) { skill.name = value; debouncedSave(); }
+    }
+
     function renderSkills() {
         const list = document.getElementById('skill-list');
         list.innerHTML = '';
@@ -827,7 +858,7 @@
             const div = document.createElement('div');
             div.className = 'skill-item';
             div.innerHTML = `
-                <div class="skill-name" contenteditable="true" spellcheck="false" onblur="updateSkillName('${skill.id}', this.innerText)">${skill.name}</div>
+                <div class="skill-name" contenteditable="true" spellcheck="false" oninput="handleSkillInput('${skill.id}', this.innerText)">${skill.name}</div>
                 <div class="skill-bar-container" onclick="updateSkillProgress(event, '${skill.id}')">
                     <div class="skill-bar-fill" style="width: ${skill.progress}%"></div>
                 </div>
@@ -847,11 +878,6 @@
         
         const skill = skillsData.find(s => s.id === id);
         if(skill) { skill.progress = percent; saveDataQuietly(); renderSkills(); }
-    }
-
-    function updateSkillName(id, name) {
-        const skill = skillsData.find(s => s.id === id);
-        if(skill) { skill.name = name; saveDataQuietly(); }
     }
 
     async function handleAddSkill() {
@@ -909,6 +935,7 @@
 
     function updateNoteData(id, key, value) { const note = notesData.find(n => n.id === id); if(note) { note[key] = value; saveDataQuietly(); } }
     
+    // 💡 V22: 데이터 백업 핵심 함수
     async function saveDataQuietly() { 
         if (activeExpandNoteId) {
             const note = notesData.find(n => n.id === activeExpandNoteId);
