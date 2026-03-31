@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blender Hub Pro - Auto Save</title>
+    <title>Blender Hub Pro - Subculture Modeler</title>
     
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -128,18 +128,11 @@
         .cal-record { background: rgba(237, 137, 54, 0.15); color: var(--accent); padding: 6px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; word-break: break-all; }
         .cal-record.done { background: rgba(72, 187, 120, 0.15); color: var(--success); text-decoration: line-through; opacity: 0.5; }
 
-        /* --- 📈 3. 스킬 트리 & 포트폴리오 --- */
+        /* --- 📈 3. 기록부 (갤러리) --- */
         #view-growth { padding: 40px; overflow-y: auto; background: var(--bg-main); }
         .growth-container { width: 100%; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px; }
-        .skill-section { background: var(--card-bg); padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 5px 15px var(--card-shadow); }
         .skill-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .skill-header h2 { color: var(--text-main); font-size: 1.4rem; }
-        .skill-list { display: flex; flex-direction: column; gap: 15px; }
-        .skill-item { display: flex; align-items: center; gap: 15px; }
-        .skill-name { width: 150px; color: var(--text-dim); font-weight: 700; font-size: 1rem; }
-        .skill-bar-container { flex: 1; height: 16px; background: var(--sidebar-bg); border-radius: 8px; overflow: hidden; position: relative; border: 1px solid var(--border-color); cursor: pointer; }
-        .skill-bar-fill { height: 100%; background: linear-gradient(90deg, #FF7B33, #ED8936); width: 0%; transition: width 0.3s ease; }
-        .skill-percent { width: 40px; text-align: right; color: var(--accent); font-weight: 800; font-size: 0.9rem; }
         .gallery-section { background: var(--card-bg); padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 5px 15px var(--card-shadow); }
         .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
         .gallery-item { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: var(--sidebar-bg); }
@@ -180,7 +173,7 @@
         <div class="expand-header">
             <div style="display:flex; align-items:center; gap:15px; flex:1;">
                 <div style="width:5px; height:25px; background:var(--accent);"></div>
-                <h1 id="expand-title" contenteditable="true" spellcheck="false" style="font-size:1.8rem; color:var(--text-main); outline:none; margin:0;" oninput="handleExpandInput()"></h1>
+                <h1 id="expand-title" contenteditable="true" spellcheck="false" style="font-size:1.8rem; color:var(--text-main); outline:none; margin:0;" onblur="saveDataQuietly()"></h1>
             </div>
             <button class="util-btn" onclick="triggerExpandImageUpload()" style="margin-right:15px; font-size:1rem; padding:8px 15px;">📷 다중 이미지 추가</button>
             <button class="util-btn" onclick="closeExpandModal()" style="font-size:1.1rem; padding:8px 25px; background:var(--accent); color:white; border:none; border-radius:8px;">✔ 닫기</button>
@@ -200,7 +193,7 @@
         <div class="expand-body-wrapper" ondrop="handleExpandDrop(event)" ondragover="event.preventDefault()">
             <div class="expand-paper">
                 <div id="expand-images-layer" class="images-layer"></div>
-                <div id="expand-body" class="expand-body" contenteditable="true" spellcheck="false" oninput="handleExpandInput()"></div>
+                <div id="expand-body" class="expand-body" contenteditable="true" spellcheck="false" onblur="saveDataQuietly()"></div>
             </div>
         </div>
     </div>
@@ -228,8 +221,8 @@
         <nav>
             <div class="mode-switch">
                 <button id="tab-notes" class="mode-btn active" onclick="switchMode('notes')">📝 화이트보드</button>
-                <button id="tab-calendar" class="mode-btn" onclick="switchMode('calendar')">📅 퀘스트(일정)</button>
-                <button id="tab-growth" class="mode-btn" onclick="switchMode('growth')">🎯 스킬 & 성장</button>
+                <button id="tab-calendar" class="mode-btn" onclick="switchMode('calendar')">📅 달력</button>
+                <button id="tab-growth" class="mode-btn" onclick="switchMode('growth')">🎯 기록부</button>
             </div>
             
             <div class="nav-content-wrapper" id="nav-notes-menu">
@@ -245,6 +238,18 @@
                 <button onclick="loadSubcultureTemplate()" style="width:100%; padding:12px; margin-top:10px; background:rgba(237, 137, 54, 0.1); border:1px solid var(--accent); color:var(--accent); border-radius:10px; font-weight:600; cursor:pointer;">✨ 캐릭터 폴더 세팅</button>
             </div>
 
+            <div class="nav-content-wrapper" id="nav-gallery-menu" style="display:none;">
+                <h2 style="font-size: 0.8rem; letter-spacing: 2px; color: var(--text-dim); margin-bottom: 1rem;">RECORD FOLDERS</h2>
+                <div id="gallery-category-list">
+                    <div class="nav-item active" id="g-item-all" style="margin-bottom:15px;">
+                        <span class="fold-btn empty"></span>
+                        <div class="category-text" onclick="filterGalleryItems('all')">📁 기록 전체보기</div>
+                    </div>
+                    <div id="dynamic-gallery-categories"></div>
+                </div>
+                <button onclick="handleAddGalleryCategory(null)" style="width:100%; padding:12px; margin-top:20px; background:transparent; border:1px dashed var(--text-dim); color:var(--text-main); border-radius:10px; font-weight:600; cursor:pointer;">+ 기록 폴더 추가</button>
+            </div>
+
             <div class="data-management">
                 <button class="data-btn" onclick="exportData()">💾 로컬 데이터 백업</button>
                 <button class="data-btn" onclick="document.getElementById('import-file').click()">📂 데이터 복구하기</button>
@@ -255,7 +260,7 @@
         <main>
             <header class="header-top">
                 <div style="display:flex; align-items:center; gap:15px;">
-                    <button onclick="handleAddNote()" style="padding:10px 20px; background:var(--accent); border:none; color:white; border-radius:10px; font-weight:bold; cursor:pointer;">+ 새 노트 띄우기</button>
+                    <button id="add-note-btn" onclick="handleAddNote()" style="padding:10px 20px; background:var(--accent); border:none; color:white; border-radius:10px; font-weight:bold; cursor:pointer;">+ 새 노트 띄우기</button>
                 </div>
                 <div class="header-actions">
                     <input type="text" id="search-input" class="search-box" spellcheck="false" placeholder="🔍 제목/내용 검색" oninput="searchNotes(this.value)">
@@ -282,17 +287,10 @@
 
             <div id="view-growth" class="view-section">
                 <div class="growth-container">
-                    <div class="skill-section">
-                        <div class="skill-header">
-                            <h2>✨ 3D 모델링 스킬 숙련도</h2>
-                            <button class="util-btn" onclick="handleAddSkill()">+ 스킬 추가</button>
-                        </div>
-                        <div class="skill-list" id="skill-list"></div>
-                    </div>
                     <div class="gallery-section">
                         <div class="skill-header">
-                            <h2>🖼️ 완성작 / 성장 갤러리</h2>
-                            <p style="color:var(--text-dim); font-size:0.9rem; margin:0;">과거의 나와 비교하며 성장을 기록하세요.</p>
+                            <h2>🖼️ 렌더링 / 작업 기록부</h2>
+                            <p style="color:var(--text-dim); font-size:0.9rem; margin:0;">작업 과정을 폴더별로 기록하세요.</p>
                         </div>
                         <div class="gallery-grid" id="gallery-grid"></div>
                     </div>
@@ -302,7 +300,7 @@
     </div>
 
 <script>
-    // --- 💡 1. IndexedDB 설정 ---
+    // --- 💡 IndexedDB 설정 ---
     const dbName = "BlenderHubDB";
     const storeName = "appData";
     let db;
@@ -325,23 +323,15 @@
     let categoriesData = [];
     let notesData = [];
     let scheduleData = {}; 
-    let skillsData = [
-        { id: "s1", name: "인체 비율/해부학", progress: 20 },
-        { id: "s2", name: "얼굴 토폴로지", progress: 10 },
-        { id: "s3", name: "카툰 렌더링(NPR)", progress: 0 },
-        { id: "s4", name: "헤어 커브/파티클", progress: 0 },
-        { id: "s5", name: "리깅 및 웨이트", progress: 0 }
-    ];
+    let galleryCategoriesData = [];
     let galleryData = [];
 
     let currentCategoryId = 'all'; 
+    let currentGalleryCategoryId = 'all'; 
     let currentMode = 'notes'; 
     let calDate = new Date(); 
     let isHighlighterMode = false;
     let activeExpandNoteId = null;
-
-    // 💡 V22: 실시간 타이핑을 버벅거림 없이 저장하기 위한 디바운스 타이머
-    let autoSaveTimer;
 
     function uuid() { return 'id-' + Math.random().toString(36).substr(2, 9); }
 
@@ -366,9 +356,12 @@
         document.getElementById('view-growth').classList.toggle('active', mode === 'growth');
         
         document.getElementById('nav-notes-menu').style.display = (mode === 'notes') ? 'block' : 'none';
+        document.getElementById('nav-gallery-menu').style.display = (mode === 'growth') ? 'block' : 'none';
         
+        document.getElementById('add-note-btn').style.display = (mode === 'notes') ? 'block' : 'none';
+
         if(mode === 'calendar') renderCalendar();
-        if(mode === 'growth') { renderSkills(); renderGallery(); }
+        if(mode === 'growth') { renderGalleryCategoriesUI(); renderGallery(); }
     }
     
     const modalOverlay = document.getElementById('custom-modal-overlay'); 
@@ -404,6 +397,7 @@
         });
     }
 
+    /* --- 노트 사이드바 관리 --- */
     async function loadSubcultureTemplate() {
         const confirmed = await openModal({ type: 'confirm', title: '캐릭터 템플릿 추가', message: '서브컬처 캐릭터 모델링에 필요한 기본 폴더 구조를 추가하시겠습니까?' });
         if (confirmed) {
@@ -468,7 +462,7 @@
             }
         });
         
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.querySelectorAll('#nav-notes-menu .nav-item').forEach(i => i.classList.remove('active'));
         const activeDom = document.getElementById('item-' + currentCategoryId);
         if(activeDom) activeDom.classList.add('active');
     }
@@ -503,6 +497,93 @@
         renderCategoriesUI(); renderNotesUI();
     }
 
+    /* --- 기록부(갤러리) 사이드바 관리 --- */
+    async function handleAddGalleryCategory(parentId) { 
+        const title = parentId ? '하위 기록 폴더 추가' : '메인 기록 폴더 추가';
+        const res = await openModal({ type: 'prompt', title: title, message: '이름을 입력하세요.' }); 
+        if (res && res.action==='save' && res.text) { 
+            galleryCategoriesData.push({ id: uuid(), name: res.text, parentId: parentId, isExpanded: true });
+            saveAndRenderQuietly();
+        } 
+    }
+    
+    async function handleDeleteGalleryCategory(id) { 
+        const confirmed = await openModal({ type: 'danger', title: '삭제', message: '폴더와 안의 기록이 모두 지워집니다.' }); 
+        if (confirmed) { 
+            const idsToDelete = [id];
+            galleryCategoriesData.forEach(c => { if(c.parentId === id) idsToDelete.push(c.id); });
+            galleryCategoriesData = galleryCategoriesData.filter(c => !idsToDelete.includes(c.id));
+            galleryData = galleryData.filter(g => !idsToDelete.includes(g.catId));
+            if(idsToDelete.includes(currentGalleryCategoryId)) currentGalleryCategoryId = 'all';
+            saveAndRenderQuietly(); 
+        } 
+    }
+
+    function toggleGalleryFolder(event, id) {
+        event.stopPropagation();
+        const cat = galleryCategoriesData.find(c => c.id === id);
+        if (cat) {
+            cat.isExpanded = cat.isExpanded === false ? true : false;
+            saveAndRenderQuietly();
+        }
+    }
+
+    function renderGalleryCategoriesUI() {
+        const container = document.getElementById('dynamic-gallery-categories');
+        container.innerHTML = '';
+        
+        galleryCategoriesData.filter(c => !c.parentId).forEach(root => {
+            const children = galleryCategoriesData.filter(c => c.parentId === root.id);
+            const hasChildren = children.length > 0;
+            
+            container.appendChild(createGalleryCategoryDOM(root, 0, hasChildren));
+            
+            if(hasChildren) {
+                const subContainer = document.createElement('div');
+                subContainer.className = 'cat-children';
+                if (root.isExpanded === false) subContainer.style.display = 'none';
+                
+                children.forEach(child => subContainer.appendChild(createGalleryCategoryDOM(child, 1, false)));
+                container.appendChild(subContainer);
+            }
+        });
+        
+        document.querySelectorAll('#nav-gallery-menu .nav-item').forEach(i => i.classList.remove('active'));
+        const activeDom = document.getElementById('g-item-' + currentGalleryCategoryId);
+        if(activeDom) activeDom.classList.add('active');
+    }
+
+    function createGalleryCategoryDOM(cat, level, hasChildren) {
+        const div = document.createElement('div'); 
+        div.className = 'nav-item'; div.id = "g-item-"+cat.id;
+        let prefix = level === 1 ? '↳ ' : '📁 ';
+        
+        let toggleHtml = '';
+        if (level === 0 && hasChildren) {
+            const arrow = cat.isExpanded === false ? '▶' : '▼';
+            toggleHtml = `<span class="fold-btn" onclick="toggleGalleryFolder(event, '${cat.id}')" title="접기/펴기">${arrow}</span>`;
+        } else if (level === 0) {
+            toggleHtml = `<span class="fold-btn empty"></span>`;
+        }
+
+        div.innerHTML = `
+            ${toggleHtml}
+            <div class="category-text" onclick="filterGalleryItems('${cat.id}')">${prefix}${cat.name}</div>
+            <div class="cat-btns">
+                ${level === 0 ? `<button class="cat-btn" onclick="handleAddGalleryCategory('${cat.id}')" title="하위 폴더 추가">+</button>` : ''}
+                <button class="cat-btn del" onclick="handleDeleteGalleryCategory('${cat.id}')">×</button>
+            </div>
+        `;
+        return div;
+    }
+
+    function filterGalleryItems(id) { 
+        currentGalleryCategoryId = id; 
+        renderGalleryCategoriesUI(); renderGallery();
+    }
+
+
+    /* --- 노트 렌더링 --- */
     async function handleAddNote() { 
         if (currentCategoryId === 'all') { await openModal({ type: 'danger', title: '경고', message: '왼쪽 폴더에서 특정 카테고리를 먼저 선택하세요.' }); return; } 
         const container = document.getElementById('content-container');
@@ -511,22 +592,6 @@
         
         notesData.push({ id: uuid(), catId: currentCategoryId, title: "새로운 기록", content: "", x: x, y: y, w: 380, h: 350, images: [] });
         saveAndRenderQuietly();
-    }
-
-    // 💡 V22: 입력 시 즉각 메모리에 반영하고 0.5초 뒤 자동 저장
-    function debouncedSave() {
-        clearTimeout(autoSaveTimer);
-        autoSaveTimer = setTimeout(() => {
-            saveDataQuietly();
-        }, 500); // 0.5초 동안 타자가 멈추면 디비에 저장
-    }
-
-    function handleNoteInput(id, key, value) {
-        const note = notesData.find(n => n.id === id);
-        if(note) { 
-            note[key] = value; 
-            debouncedSave(); 
-        }
     }
 
     function renderNotesUI() {
@@ -541,11 +606,10 @@
                 div.style.width = `${note.w}px`; div.style.height = `${note.h}px`;
             }
 
-            // 💡 V22: oninput 에 handleNoteInput을 연결하여 실시간 저장 트리거
             div.innerHTML = `
                 <div class="card-header" onmousedown="startCardDrag(event, '${note.id}')">
                     <div class="card-title-wrap">
-                        <h2 contenteditable="true" spellcheck="false" oninput="handleNoteInput('${note.id}', 'title', this.innerText)">${note.title}</h2>
+                        <h2 contenteditable="true" spellcheck="false" onblur="updateNoteData('${note.id}', 'title', this.innerText)">${note.title}</h2>
                     </div>
                     <div class="card-actions" onmousedown="event.stopPropagation()">
                         <button class="util-btn" onclick="openExpandModal('${note.id}')" title="전체화면 작성">🔍 확대</button>
@@ -556,15 +620,15 @@
                 </div>
                 
                 <div class="editor-toolbar" onmousedown="event.stopPropagation()">
-                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '5'); debouncedSave();">A+</button>
-                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '3'); debouncedSave();">A-</button>
+                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '5'); saveDataQuietly();">A+</button>
+                    <button class="tool-btn" onclick="document.execCommand('fontSize', false, '3'); saveDataQuietly();">A-</button>
                     <button class="tool-btn hl-btn" onclick="toggleHighlighterMode()">🖍️</button>
                     <button class="tool-btn" onclick="clearHighlight()">🧽</button>
                 </div>
                 
                 <div class="content-area" onmousedown="event.stopPropagation()" ondrop="handleNoteDrop(event, '${note.id}')" ondragover="event.preventDefault()">
                     <div class="images-layer" id="images-${note.id}"></div>
-                    <div class="editable-content" contenteditable="true" spellcheck="false" oninput="handleNoteInput('${note.id}', 'content', this.innerHTML)">${note.content}</div>
+                    <div class="editable-content" contenteditable="true" spellcheck="false" onblur="updateNoteData('${note.id}', 'content', this.innerHTML)">${note.content}</div>
                 </div>
             `;
             
@@ -752,11 +816,6 @@
 
     function toggleNoteToolbar(id) { const card = document.getElementById(id); if(card) card.classList.toggle('show-toolbar'); }
 
-    // 💡 V22: 확대 모달의 입력 이벤트를 디바운스 자동 저장에 연결
-    function handleExpandInput() {
-        debouncedSave();
-    }
-
     function openExpandModal(noteId) {
         const note = notesData.find(n => n.id === noteId); if(!note) return;
         activeExpandNoteId = noteId; 
@@ -779,7 +838,7 @@
         activeExpandNoteId = null; renderNotesUI();
     }
     
-    function formatExpandText(command, val=null) { document.getElementById('expand-body').focus(); document.execCommand(command, false, val); debouncedSave(); }
+    function formatExpandText(command, val=null) { document.getElementById('expand-body').focus(); document.execCommand(command, false, val); saveDataQuietly(); }
 
     function toggleHighlighterMode() {
         isHighlighterMode = !isHighlighterMode;
@@ -804,7 +863,7 @@
             document.execCommand('backColor', false, '#ED8936');
             document.execCommand('foreColor', false, '#FFFFFF');
             window.getSelection().removeAllRanges(); 
-            debouncedSave(); 
+            saveDataQuietly(); 
         } 
     });
     
@@ -812,7 +871,7 @@
         document.execCommand('backColor', false, 'rgba(0,0,0,0)'); 
         document.execCommand('foreColor', false, getComputedStyle(document.body).getPropertyValue('--text-main').trim()); 
         document.execCommand('removeFormat', false, null); 
-        debouncedSave(); 
+        saveDataQuietly(); 
     }
 
     function changeMonth(step) { 
@@ -845,59 +904,13 @@
         }
     }
 
-    // 💡 V22: 스킬 트리 실시간 저장
-    function handleSkillInput(id, value) {
-        const skill = skillsData.find(s => s.id === id);
-        if(skill) { skill.name = value; debouncedSave(); }
-    }
-
-    function renderSkills() {
-        const list = document.getElementById('skill-list');
-        list.innerHTML = '';
-        skillsData.forEach(skill => {
-            const div = document.createElement('div');
-            div.className = 'skill-item';
-            div.innerHTML = `
-                <div class="skill-name" contenteditable="true" spellcheck="false" oninput="handleSkillInput('${skill.id}', this.innerText)">${skill.name}</div>
-                <div class="skill-bar-container" onclick="updateSkillProgress(event, '${skill.id}')">
-                    <div class="skill-bar-fill" style="width: ${skill.progress}%"></div>
-                </div>
-                <div class="skill-percent">${skill.progress}%</div>
-                <button class="cat-btn del" onclick="deleteSkill('${skill.id}')" style="margin-left:10px;">×</button>
-            `;
-            list.appendChild(div);
-        });
-    }
-
-    function updateSkillProgress(e, id) {
-        const container = e.currentTarget;
-        const rect = container.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        let percent = Math.round((clickX / rect.width) * 100);
-        if(percent < 0) percent = 0; if(percent > 100) percent = 100;
-        
-        const skill = skillsData.find(s => s.id === id);
-        if(skill) { skill.progress = percent; saveDataQuietly(); renderSkills(); }
-    }
-
-    async function handleAddSkill() {
-        const name = await openModal({ type: 'prompt', title: '스킬 추가', message: '연마할 스킬 이름을 적어주세요.', placeholder: '예: 캐릭터 리깅' });
-        if(name && name.action === 'save' && name.text) {
-            skillsData.push({ id: uuid(), name: name.text, progress: 0 });
-            saveDataQuietly(); renderSkills();
-        }
-    }
-
-    function deleteSkill(id) {
-        skillsData = skillsData.filter(s => s.id !== id);
-        saveDataQuietly(); renderSkills();
-    }
-
     function renderGallery() {
         const grid = document.getElementById('gallery-grid');
         grid.innerHTML = '';
         
         galleryData.forEach(item => {
+            if (currentGalleryCategoryId !== 'all' && item.catId !== currentGalleryCategoryId) return;
+
             const div = document.createElement('div');
             div.className = 'gallery-item';
             div.innerHTML = `
@@ -909,19 +922,24 @@
 
         const addBtn = document.createElement('div');
         addBtn.className = 'gallery-add';
-        addBtn.innerHTML = `<span style="font-size:2rem; margin-bottom:5px;">+</span> 렌더 이미지 추가`;
+        addBtn.innerHTML = `<span style="font-size:2rem; margin-bottom:5px;">+</span> 이미지 추가`;
         addBtn.onclick = () => triggerGalleryUpload();
         grid.appendChild(addBtn);
     }
 
-    function triggerGalleryUpload() {
+    async function triggerGalleryUpload() {
+        if (currentGalleryCategoryId === 'all') { 
+            await openModal({ type: 'danger', title: '경고', message: '왼쪽 폴더 메뉴에서 특정 기록 폴더를 먼저 선택하세요.' }); 
+            return; 
+        }
+
         const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
         input.onchange = (e) => {
             Array.from(e.target.files).forEach(file => {
                 const reader = new FileReader();
                 reader.onload = async (ev) => {
                     const compressedSrc = await compressImage(ev.target.result, 1200, 0.8);
-                    galleryData.push({ id: uuid(), src: compressedSrc });
+                    galleryData.push({ id: uuid(), src: compressedSrc, catId: currentGalleryCategoryId });
                     saveDataQuietly(); renderGallery();
                 }; reader.readAsDataURL(file);
             });
@@ -935,21 +953,27 @@
 
     function updateNoteData(id, key, value) { const note = notesData.find(n => n.id === id); if(note) { note[key] = value; saveDataQuietly(); } }
     
-    // 💡 V22: 데이터 백업 핵심 함수
     async function saveDataQuietly() { 
         if (activeExpandNoteId) {
             const note = notesData.find(n => n.id === activeExpandNoteId);
             if(note) { note.title = document.getElementById('expand-title').innerText; note.content = document.getElementById('expand-body').innerHTML; }
         }
         
-        const dataToSave = { categories: categoriesData, notes: notesData, schedule: scheduleData, skills: skillsData, gallery: galleryData };
+        const dataToSave = { 
+            categories: categoriesData, 
+            notes: notesData, 
+            schedule: scheduleData, 
+            galleryCategories: galleryCategoriesData, 
+            gallery: galleryData 
+        };
+
         if(!db) await initDB();
         const tx = db.transaction(storeName, 'readwrite');
         const store = tx.objectStore(storeName);
         store.put(dataToSave, 'main_save');
     }
     
-    function saveAndRenderQuietly() { saveDataQuietly(); renderCategoriesUI(); renderNotesUI(); renderCalendar(); }
+    function saveAndRenderQuietly() { saveDataQuietly(); renderCategoriesUI(); renderNotesUI(); renderCalendar(); renderGalleryCategoriesUI(); renderGallery(); }
     
     async function initApp() {
         document.execCommand('styleWithCSS', false, true);
@@ -971,26 +995,30 @@
             }
 
             if (data) { 
-                categoriesData = data.categories || []; notesData = data.notes || []; scheduleData = data.schedule || {}; 
-                skillsData = data.skills || skillsData; galleryData = data.gallery || [];
+                categoriesData = data.categories || []; 
+                notesData = data.notes || []; 
+                scheduleData = data.schedule || {}; 
+                galleryCategoriesData = data.galleryCategories || []; 
+                galleryData = data.gallery || [];
                 
-                categoriesData.forEach(c => {
-                    if(c.isExpanded === undefined) c.isExpanded = true;
-                });
+                categoriesData.forEach(c => { if(c.isExpanded === undefined) c.isExpanded = true; });
+                galleryCategoriesData.forEach(c => { if(c.isExpanded === undefined) c.isExpanded = true; });
 
             } else { 
-                categoriesData = [ {id: uuid(), name: '블렌더 기본 폴더', parentId: null, isExpanded: true} ]; 
+                categoriesData = [ {id: uuid(), name: '기본 작업 폴더', parentId: null, isExpanded: true} ]; 
+                galleryCategoriesData = [ {id: uuid(), name: '기본 기록 폴더', parentId: null, isExpanded: true} ]; 
             }
             
             saveAndRenderQuietly(); 
             filterItems('all'); 
+            filterGalleryItems('all');
         };
     }
     
     function searchNotes(query) { query = query.toLowerCase(); document.querySelectorAll('.tip-card').forEach(card => { const title = card.querySelector('h2').innerText.toLowerCase(); const content = card.querySelector('.editable-content').innerText.toLowerCase(); const isMatch = title.includes(query) || content.includes(query); card.style.display = isMatch ? 'flex' : 'none'; }); }
     function openLightbox(src) { document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').classList.add('show'); }
     function closeLightbox() { document.getElementById('lightbox').classList.remove('show'); setTimeout(() => { document.getElementById('lightbox-img').src = ''; }, 300); }
-    async function exportData() { const dataStr = JSON.stringify({categories: categoriesData, notes: notesData, schedule: scheduleData, skills: skillsData, gallery: galleryData}, null, 2); const blob = new Blob([dataStr], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Blender_Data_Subculture.json`; a.click(); URL.revokeObjectURL(url); }
+    async function exportData() { const dataStr = JSON.stringify({categories: categoriesData, notes: notesData, schedule: scheduleData, galleryCategories: galleryCategoriesData, gallery: galleryData}, null, 2); const blob = new Blob([dataStr], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Blender_Data_Subculture.json`; a.click(); URL.revokeObjectURL(url); }
     async function importData(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async function(e) { try { const importedData = JSON.parse(e.target.result); if(importedData.categories) { if(!db) await initDB(); const tx = db.transaction(storeName, 'readwrite'); const store = tx.objectStore(storeName); store.put(importedData, 'main_save'); tx.oncomplete = () => location.reload(); } } catch (err) { alert("파일 형식 오류"); } }; reader.readAsText(file); event.target.value = ''; }
 
 </script>
